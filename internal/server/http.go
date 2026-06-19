@@ -57,6 +57,7 @@ func (s *HTTPServer) Start() {
 	mux.HandleFunc("/api/download/", s.handleDownload)
 	mux.HandleFunc("/api/upload/", s.handleUpload)
 	mux.HandleFunc("/api/chat/history", s.handleChatHistory)
+	mux.HandleFunc("/api/localip", s.handleLocalIP)
 	mux.HandleFunc("/api/qrcode", s.handleQRCode)
 	mux.HandleFunc("/ws", s.handleWebSocket)
 
@@ -208,6 +209,11 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	messages := s.chat.GetMessages(50)
 	json.NewEncoder(w).Encode(messages)
+}
+
+func (s *HTTPServer) handleLocalIP(w http.ResponseWriter, r *http.Request) {
+	ip := s.getLocalIP()
+	json.NewEncoder(w).Encode(map[string]string{"ip": ip})
 }
 
 type SettingsResponse struct {

@@ -200,8 +200,17 @@ function toast(msg, type='info') {
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 /* ── QR Code ── */
-function openQRCode() {
-    const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port || (window.location.protocol === 'https:' ? '443' : '80')}`;
+async function openQRCode() {
+    let hostname = window.location.hostname;
+    if (hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '') {
+        try {
+            const r = await fetch('/api/localip');
+            const data = await r.json();
+            if (data.ip) hostname = data.ip;
+        } catch {}
+    }
+    const port = window.location.port || (window.location.protocol === 'https:' ? '443' : '80');
+    const url = `${window.location.protocol}//${hostname}:${port}`;
     document.getElementById('qrcode-img').src = `/api/qrcode?url=${encodeURIComponent(url)}`;
     document.getElementById('qrcode-url').textContent = url;
     document.getElementById('qrcode-modal').classList.remove('hidden');
