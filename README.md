@@ -49,6 +49,33 @@ go run cmd/lanshare/main.go
 
 或直接在手机浏览器访问：`http://电脑IP:8080`
 
+### 防火墙设置
+
+首次运行需要添加防火墙规则，否则手机无法访问。
+
+**方式一：使用构建脚本（推荐）**
+
+```bash
+# Windows 下双击运行
+build.bat
+```
+
+生成的 `lanshare.exe` 自带管理员权限，首次运行会自动添加防火墙规则。
+
+**方式二：手动添加规则**
+
+以管理员身份运行 PowerShell：
+
+```powershell
+netsh advfirewall firewall add rule name="LanShare" dir=in action=allow protocol=TCP localport=8080
+```
+
+**方式三：Windows 设置**
+
+1. 打开 Windows 安全中心 → 防火墙
+2. 点击「允许应用通过防火墙」
+3. 添加 `lanshare.exe` 或手动开放 8080 端口
+
 ## 项目结构
 
 ```
@@ -61,7 +88,8 @@ lan_share/
 │   │   ├── crypto.go      # AES 加密
 │   │   ├── discovery.go   # 设备发现
 │   │   ├── transfer.go    # 文件传输
-│   │   └── clipboard.go   # 剪贴板/聊天
+│   │   ├── clipboard.go   # 剪贴板/聊天
+│   │   └── firewall.go    # 防火墙管理
 │   ├── server/            # HTTP 服务
 │   │   └── http.go
 │   └── models/            # 数据模型
@@ -72,6 +100,8 @@ lan_share/
 │       └── style.css
 ├── configs/
 │   └── default.json       # 默认配置
+├── lanshare.manifest      # Windows 管理员权限清单
+├── build.bat              # 构建脚本
 ├── go.mod
 └── go.sum
 ```
