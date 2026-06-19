@@ -75,9 +75,9 @@ function renderFiles(data) {
       ? '<span class="icon folder"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>'
       : '<span class="icon file"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg></span>';
 
-    const downloadBtn = isDir ? '' : `<button class="btn btn-sm" onclick="downloadFile('${f.name}')" title="Download">⬇</button>`;
-    const copyBtn = isDir ? '' : `<button class="btn btn-sm" onclick="copyLink('${f.name}')" title="Copy link">🔗</button>`;
-    const delBtn = isDir ? '' : `<button class="btn btn-sm btn-danger" onclick="deleteFile('${f.name}')" title="Delete">🗑</button>`;
+    const downloadBtn = `<button class="btn btn-sm" onclick="downloadFile('${f.name}')" title="Download">⬇</button>`;
+    const copyBtn = `<button class="btn btn-sm" onclick="copyLink('${f.name}')" title="Copy link">🔗</button>`;
+    const delBtn = `<button class="btn btn-sm btn-danger" onclick="deleteFile('${f.name}')" title="Delete">🗑</button>`;
 
     return `<div class="file-item">
       <div class="name">${icon}<span>${escapeHtml(f.name)}</span></div>

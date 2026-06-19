@@ -1,8 +1,10 @@
 import asyncio
+import io
 import json
 import mimetypes
 import os
 import time
+import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
@@ -34,7 +36,17 @@ class FileServer:
         return ip
 
     def _get_file_size(self, path: Path) -> str:
-        size = path.stat().st_size
+        if path.is_dir():
+            total = 0
+            for root, dirs, files in os.walk(path):
+                for f in files:
+                    try:
+                        total += (Path(root) / f).stat().st_size
+                    except OSError:
+                        pass
+            size = total
+        else:
+            size = path.stat().st_size
         for unit in ("B", "KB", "MB", "GB", "TB"):
             if size < 1024:
                 return f"{size:.1f} {unit}"
@@ -50,7 +62,7 @@ class FileServer:
             files.append({
                 "name": f.name,
                 "size": self._get_file_size(f),
-                "size_bytes": stat.st_size,
+                "size_bytes": stat.st_size if not f.is_dir() else 0,
                 "is_dir": f.is_dir(),
                 "modified": time.strftime(
                     "%Y-%m-%d %H:%M:%S", time.localtime(stat.st_mtime)
@@ -138,14 +150,18 @@ class FileServer:
         await self._send_response(writer, 200, content_type, body)
 
     async def _serve_file(self, writer: asyncio.StreamWriter, filename: str):
-        # Security: prevent path traversal
         safe_name = Path(filename).name
         file_path = self.share_dir / safe_name
-        if not file_path.exists() or not file_path.is_file():
+        if not file_path.exists():
             await self._serve_error(writer, 404, "File not found")
             return
 
         self._download_count += 1
+
+        if file_path.is_dir():
+            await self._serve_directory_zip(writer, file_path, safe_name)
+            return
+
         content_type, _ = mimetypes.guess_type(str(file_path))
         content_type = content_type or "application/octet-stream"
         file_size = file_path.stat().st_size
@@ -166,6 +182,30 @@ class FileServer:
             while chunk := f.read(65536):
                 writer.write(chunk)
                 await writer.drain()
+        writer.close()
+
+    async def _serve_directory_zip(self, writer: asyncio.StreamWriter, dir_path: Path, dir_name: str):
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(dir_path):
+                for f in files:
+                    full = Path(root) / f
+                    arcname = full.relative_to(dir_path)
+                    zf.write(full, arcname)
+        buf.seek(0)
+        zip_data = buf.getvalue()
+
+        response_headers = (
+            f"HTTP/1.1 200 OK\r\n"
+            f"Content-Type: application/zip\r\n"
+            f"Content-Length: {len(zip_data)}\r\n"
+            f"Content-Disposition: attachment; filename=\"{dir_name}.zip\"\r\n"
+            f"Access-Control-Allow-Origin: *\r\n"
+            f"Connection: close\r\n"
+            f"\r\n"
+        ).encode("utf-8")
+        writer.write(response_headers + zip_data)
+        await writer.drain()
         writer.close()
 
     async def _handle_upload(self, writer: asyncio.StreamWriter, request_data: bytes, headers: dict):
@@ -220,10 +260,14 @@ class FileServer:
     async def _handle_delete(self, writer: asyncio.StreamWriter, filename: str):
         safe_name = Path(filename).name
         file_path = self.share_dir / safe_name
-        if not file_path.exists() or not file_path.is_file():
+        if not file_path.exists():
             await self._serve_error(writer, 404, "File not found")
             return
-        file_path.unlink()
+        if file_path.is_dir():
+            import shutil
+            shutil.rmtree(file_path)
+        else:
+            file_path.unlink()
         self._delete_count += 1
         await self._serve_json(writer, {"deleted": safe_name})
 
