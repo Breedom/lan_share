@@ -221,17 +221,30 @@ function closeQRCode() {
 }
 
 function copyURL() {
-    navigator.clipboard.writeText(window.location.href).then(() => {
-        toast('链接已复制', 'success');
-    }).catch(() => {
-        const input = document.createElement('input');
-        input.value = window.location.href;
-        document.body.appendChild(input);
-        input.select();
+    const url = document.getElementById('qrcode-url').textContent;
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+            toast('链接已复制', 'success');
+        }).catch(() => fallbackCopy(url));
+    } else {
+        fallbackCopy(url);
+    }
+}
+
+function fallbackCopy(text) {
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
         document.execCommand('copy');
-        document.body.removeChild(input);
         toast('链接已复制', 'success');
-    });
+    } catch {
+        toast('复制失败，请手动复制', 'error');
+    }
+    document.body.removeChild(textarea);
 }
 
 /* ── Settings ── */
