@@ -1,12 +1,32 @@
-__pycache__/
-*.pyc
-*.pyo
-.env
-shared_data/
+# Binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Dependency directories
+vendor/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
 .DS_Store
 Thumbs.db
 
-# PyInstaller
-build/
+# Build
 dist/
-*.spec.bak
+build/
+
+# Config (user specific)
+configs/config.json

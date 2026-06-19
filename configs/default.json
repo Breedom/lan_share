@@ -1,0 +1,27 @@
+{
+  "server": {
+    "http_port": 8080,
+    "tcp_port": 53317,
+    "udp_port": 53317
+  },
+  "security": {
+    "encryption_enabled": true,
+    "auto_pair": false
+  },
+  "shares": [
+    {
+      "name": "Downloads",
+      "path": "C:\\Users\\Public\\Downloads",
+      "readonly": false
+    }
+  ],
+  "clipboard": {
+    "sync_enabled": true,
+    "sync_interval": 1000
+  },
+  "general": {
+    "auto_start": true,
+    "minimize_to_tray": true,
+    "device_name": "My PC"
+  }
+}
