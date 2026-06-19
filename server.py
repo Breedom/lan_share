@@ -318,10 +318,14 @@ class FileServer:
     async def start(self):
         server = await asyncio.start_server(self.handle_request, "0.0.0.0", self.port)
         addr = server.sockets[0].getsockname()
+        network_url = f"http://{self.host}:{addr[1]}"
         print(f"  LAN Share running at:")
         print(f"  Local:   http://localhost:{addr[1]}")
-        print(f"  Network: http://{self.host}:{addr[1]}")
+        print(f"  Network: {network_url}")
         print(f"  Share:   {self.share_dir}")
+        print()
+        print(f"  >>> Open in browser:")
+        print(f"  >>> {network_url}")
         print()
 
         async with server:
