@@ -216,10 +216,15 @@ class LanShareGUI:
             async def _run():
                 s = await asyncio.start_server(server.handle_request, "0.0.0.0", port)
                 addr = s.sockets[0].getsockname()
+                local_url = f"http://localhost:{addr[1]}"
+                network_url = f"http://{server.host}:{addr[1]}"
                 print(f"  LAN Share running at:")
-                print(f"  Local:   http://localhost:{addr[1]}")
-                print(f"  Network: http://{server.host}:{addr[1]}")
+                print(f"  Local:   {local_url}")
+                print(f"  Network: {network_url}")
                 print(f"  Share:   {server.share_dir}")
+                print()
+                print(f"  >>> 在浏览器打开以下地址即可使用:")
+                print(f"  >>> {network_url}")
                 print()
 
                 discovery_task = asyncio.create_task(server.discovery.start())
