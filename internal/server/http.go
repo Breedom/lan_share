@@ -49,6 +49,7 @@ func (s *HTTPServer) Start() {
 	mux.HandleFunc("/api/device", s.handleDeviceInfo)
 	mux.HandleFunc("/api/peers", s.handlePeers)
 	mux.HandleFunc("/api/shares", s.handleShares)
+	mux.HandleFunc("/api/settings", s.handleSettings)
 	mux.HandleFunc("/api/files/", s.handleFiles)
 	mux.HandleFunc("/api/download/", s.handleDownload)
 	mux.HandleFunc("/api/upload/", s.handleUpload)
@@ -203,6 +204,43 @@ func (s *HTTPServer) handleUpload(w http.ResponseWriter, r *http.Request) {
 func (s *HTTPServer) handleChatHistory(w http.ResponseWriter, r *http.Request) {
 	messages := s.chat.GetMessages(50)
 	json.NewEncoder(w).Encode(messages)
+}
+
+type SettingsResponse struct {
+	DeviceName    string          `json:"device_name"`
+	HTTPPort      int             `json:"http_port"`
+	Encryption    bool            `json:"encryption"`
+	ClipboardSync bool            `json:"clipboard_sync"`
+	Shares        []core.ShareConfig `json:"shares"`
+}
+
+func (s *HTTPServer) handleSettings(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case "GET":
+		resp := SettingsResponse{
+			DeviceName:    s.config.General.DeviceName,
+			HTTPPort:      s.config.Server.HTTPPort,
+			Encryption:    s.config.Security.EncryptionEnabled,
+			ClipboardSync: s.config.Clipboard.SyncEnabled,
+			Shares:        s.config.Shares,
+		}
+		json.NewEncoder(w).Encode(resp)
+	case "POST":
+		var req SettingsResponse
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		s.config.General.DeviceName = req.DeviceName
+		s.config.Server.HTTPPort = req.HTTPPort
+		s.config.Security.EncryptionEnabled = req.Encryption
+		s.config.Clipboard.SyncEnabled = req.ClipboardSync
+		s.config.Shares = req.Shares
+		core.SaveConfig(s.config)
+		json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
 }
 
 func (s *HTTPServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {

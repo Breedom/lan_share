@@ -199,4 +199,89 @@ function toast(msg, type='info') {
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
+/* ── Settings ── */
+let currentSettings = {};
+
+async function loadSettings() {
+    try {
+        const r = await fetch(`${API}/api/settings`);
+        currentSettings = await r.json();
+    } catch { currentSettings = {}; }
+}
+
+function openSettings() {
+    loadSettings().then(() => {
+        document.getElementById('setting-device-name').value = currentSettings.device_name || '';
+        document.getElementById('setting-http-port').value = currentSettings.http_port || 8080;
+        document.getElementById('setting-encryption').checked = currentSettings.encryption !== false;
+        document.getElementById('setting-clipboard').checked = currentSettings.clipboard_sync !== false;
+        renderShares(currentSettings.shares || []);
+        document.getElementById('settings-modal').classList.remove('hidden');
+    });
+}
+
+function closeSettings() {
+    document.getElementById('settings-modal').classList.add('hidden');
+}
+
+function renderShares(shares) {
+    const el = document.getElementById('shares-list');
+    if (!shares.length) {
+        el.innerHTML = '<p class="text-xs text-slate-500 text-center py-3">暂无共享文件夹</p>';
+        return;
+    }
+    el.innerHTML = shares.map((s, i) => `
+        <div class="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+            <i class="ri-folder-3-fill text-amber-400 text-lg"></i>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm text-white truncate">${esc(s.name)}</p>
+                <p class="text-[11px] text-slate-500 truncate">${esc(s.path)}</p>
+            </div>
+            <button onclick="removeShare(${i})" class="w-7 h-7 rounded-lg bg-red-500/10 flex items-center justify-center text-red-400 hover:bg-red-500/20 transition-all">
+                <i class="ri-delete-bin-line text-sm"></i>
+            </button>
+        </div>
+    `).join('');
+}
+
+function addShare() {
+    const name = prompt('共享名称:');
+    if (!name) return;
+    const path = prompt('文件夹路径:');
+    if (!path) return;
+    if (!currentSettings.shares) currentSettings.shares = [];
+    currentSettings.shares.push({ name, path, readonly: false });
+    renderShares(currentSettings.shares);
+}
+
+function removeShare(index) {
+    currentSettings.shares.splice(index, 1);
+    renderShares(currentSettings.shares);
+}
+
+async function saveSettings() {
+    const settings = {
+        device_name: document.getElementById('setting-device-name').value || 'My PC',
+        http_port: parseInt(document.getElementById('setting-http-port').value) || 8080,
+        encryption: document.getElementById('setting-encryption').checked,
+        clipboard_sync: document.getElementById('setting-clipboard').checked,
+        shares: currentSettings.shares || []
+    };
+    try {
+        const r = await fetch(`${API}/api/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        if (r.ok) {
+            toast('设置已保存', 'success');
+            closeSettings();
+        } else {
+            toast('保存失败', 'error');
+        }
+    } catch {
+        toast('保存出错', 'error');
+    }
+}
+
 setInterval(loadDevices, 5000);
