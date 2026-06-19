@@ -201,8 +201,10 @@ function esc(s) { const d=document.createElement('div'); d.textContent=s; return
 
 /* ── QR Code ── */
 function openQRCode() {
+    const url = `${window.location.protocol}//${window.location.hostname}:${window.location.port || (window.location.protocol === 'https:' ? '443' : '80')}`;
+    document.getElementById('qrcode-img').src = `/api/qrcode?url=${encodeURIComponent(url)}`;
+    document.getElementById('qrcode-url').textContent = url;
     document.getElementById('qrcode-modal').classList.remove('hidden');
-    document.getElementById('qrcode-url').textContent = window.location.href;
 }
 
 function closeQRCode() {

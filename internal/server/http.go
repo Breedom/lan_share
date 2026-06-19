@@ -248,9 +248,11 @@ func (s *HTTPServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPServer) handleQRCode(w http.ResponseWriter, r *http.Request) {
-	ip := s.getLocalIP()
-
-	url := fmt.Sprintf("http://%s:%d", ip, s.config.Server.HTTPPort)
+	url := r.URL.Query().Get("url")
+	if url == "" {
+		ip := s.getLocalIP()
+		url = fmt.Sprintf("http://%s:%d", ip, s.config.Server.HTTPPort)
+	}
 
 	size := 256
 	if sz := r.URL.Query().Get("size"); sz != "" {
