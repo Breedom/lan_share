@@ -5,3 +5,8 @@ __pycache__/
 shared_data/
 .DS_Store
 Thumbs.db
+
+# PyInstaller
+build/
+dist/
+*.spec.bak

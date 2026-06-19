@@ -1,4 +1,4 @@
-﻿let state = { files: [], peers: [] };
+﻿let state = { files: [], peers: [], currentPath: '' };
 const POLL_INTERVAL = 5000;
 let pollTimer = null;
 
@@ -40,10 +40,15 @@ document.addEventListener('DOMContentLoaded', () => {
   pollTimer = setInterval(refreshFiles, POLL_INTERVAL);
 });
 
+function getFullPath(name) {
+  return state.currentPath ? state.currentPath + '/' + name : name;
+}
+
 async function refreshFiles() {
   try {
+    const pathParam = state.currentPath ? '?path=' + encodeURIComponent(state.currentPath) : '';
     const [filesRes, peersRes] = await Promise.all([
-      fetch('/api/files'),
+      fetch('/api/files' + pathParam),
       fetch('/api/peers')
     ]);
     const filesData = await filesRes.json();
@@ -53,9 +58,33 @@ async function refreshFiles() {
     renderFiles(filesData);
     renderPeers();
     updateStats(filesData);
+    renderBreadcrumb();
   } catch (err) {
     console.error('Refresh failed:', err);
   }
+}
+
+function renderBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  if (!state.currentPath) {
+    bc.innerHTML = '';
+    return;
+  }
+  const parts = state.currentPath.split('/');
+  let html = '<span class="bc-item bc-root" onclick="navigateTo(\'\')">shared_data</span>';
+  let accumulated = '';
+  for (let i = 0; i < parts.length; i++) {
+    if (!parts[i]) continue;
+    accumulated += (accumulated ? '/' : '') + parts[i];
+    const p = accumulated;
+    html += `<span class="bc-sep">/</span><span class="bc-item" onclick="navigateTo('${escapeHtml(p)}')">${escapeHtml(parts[i])}</span>`;
+  }
+  bc.innerHTML = html;
+}
+
+function navigateTo(path) {
+  state.currentPath = path;
+  refreshFiles();
 }
 
 function renderFiles(data) {
@@ -63,7 +92,7 @@ function renderFiles(data) {
   const files = data.files || [];
 
   if (files.length === 0) {
-    list.innerHTML = '<div class="empty">No files yet - drag something in!</div>';
+    list.innerHTML = `<div class="empty">No files yet - drag something in!</div>`;
     return;
   }
 
@@ -71,19 +100,30 @@ function renderFiles(data) {
 
   list.innerHTML = files.map(f => {
     const isDir = f.is_dir;
+    const fullPath = getFullPath(f.name);
     const icon = isDir
       ? '<span class="icon folder"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg></span>'
       : '<span class="icon file"><svg viewBox="0 0 24 24" width="18" height="18"><path fill="currentColor" d="M14 2H6c-1.1 0-2 .9-2 2v16c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V8l-6-6zm-1 7V3.5L18.5 9H13z"/></svg></span>';
 
-    const downloadBtn = `<button class="btn btn-sm" onclick="downloadFile('${f.name}')" title="Download"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M13 5v6h3l-4 4-4-4h3V5h2zM5 17v2h14v-2H5z"/></svg></button>`;
-    const copyBtn = `<button class="btn btn-sm" onclick="copyLink('${f.name}')" title="Copy link"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>`;
-    const delBtn = `<button class="btn btn-sm btn-danger" onclick="deleteFile('${f.name}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg></button>`;
+    const nameHtml = isDir
+      ? `<a href="#" class="folder-link" onclick="event.preventDefault();navigateTo('${escapeHtml(fullPath)}')">${escapeHtml(f.name)}</a>`
+      : `<span>${escapeHtml(f.name)}</span>`;
+
+    let actions = '';
+    if (isDir) {
+      actions = `<button class="btn btn-sm" onclick="showFolderDialog('${escapeHtml(fullPath)}','${escapeHtml(f.name)}')" title="Download folder"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M13 5v6h3l-4 4-4-4h3V5h2zM5 17v2h14v-2H5z"/></svg></button>`;
+    } else {
+      const downloadBtn = `<button class="btn btn-sm" onclick="downloadFile('${escapeHtml(fullPath)}')" title="Download"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M13 5v6h3l-4 4-4-4h3V5h2zM5 17v2h14v-2H5z"/></svg></button>`;
+      const copyBtn = `<button class="btn btn-sm" onclick="copyLink('${escapeHtml(fullPath)}')" title="Copy link"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"/></svg></button>`;
+      const delBtn = `<button class="btn btn-sm btn-danger" onclick="deleteFile('${escapeHtml(fullPath)}')" title="Delete"><svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zm2.46-7.12l1.41-1.41L12 12.59l2.12-2.12 1.41 1.41L13.41 14l2.12 2.12-1.41 1.41L12 15.41l-2.12 2.12-1.41-1.41L10.59 14l-2.13-2.12zM15.5 4l-1-1h-5l-1 1H5v2h14V4h-3.5z"/></svg></button>`;
+      actions = downloadBtn + copyBtn + delBtn;
+    }
 
     return `<div class="file-item">
-      <div class="name">${icon}<span>${escapeHtml(f.name)}</span></div>
+      <div class="name">${icon}${nameHtml}</div>
       <div class="size">${f.size}</div>
       <div class="date">${f.modified}</div>
-      <div class="actions">${downloadBtn}${copyBtn}${delBtn}</div>
+      <div class="actions">${actions}</div>
     </div>`;
   }).join('');
 }
@@ -141,7 +181,8 @@ async function uploadFiles(files) {
 
   try {
     const xhr = new XMLHttpRequest();
-    xhr.open('POST', '/upload', true);
+    const pathParam = state.currentPath ? '?path=' + encodeURIComponent(state.currentPath) : '';
+    xhr.open('POST', '/upload' + pathParam, true);
 
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {
@@ -177,6 +218,38 @@ async function uploadFiles(files) {
     refreshFiles();
   }
 }
+
+function showFolderDialog(path, name) {
+  const modal = document.getElementById('modal');
+  const modalBody = document.getElementById('modalBody');
+  modalBody.innerHTML = `
+    <div class="modal-title">Download "${escapeHtml(name)}"</div>
+    <div class="modal-actions">
+      <button class="btn modal-btn" onclick="downloadFile('${escapeHtml(path)}');closeModal()">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M20 6h-8l-2-2H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2zm-8 10H8v-2h4v2zm4-4H8v-2h8v2z"/></svg>
+        Download as ZIP
+      </button>
+      <button class="btn modal-btn" onclick="navigateTo('${escapeHtml(path)}');closeModal()">
+        <svg viewBox="0 0 24 24" width="16" height="16"><path fill="currentColor" d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z"/></svg>
+        Open folder
+      </button>
+      <button class="btn modal-btn modal-btn-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  `;
+  modal.style.display = 'flex';
+}
+
+function closeModal() {
+  document.getElementById('modal').style.display = 'none';
+}
+
+document.addEventListener('click', (e) => {
+  if (e.target.id === 'modal') closeModal();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeModal();
+});
 
 function downloadFile(name) {
   window.location.href = '/download/' + encodeURIComponent(name);

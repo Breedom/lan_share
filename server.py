@@ -3,12 +3,22 @@ import io
 import json
 import mimetypes
 import os
+import sys
 import time
 import zipfile
 from pathlib import Path
 from urllib.parse import unquote, urlparse
 
 from discovery import Discovery
+
+
+def get_resource_path(relative_path: str) -> Path:
+    """Get path to a resource, compatible with PyInstaller bundle."""
+    if getattr(sys, 'frozen', False):
+        base = Path(sys._MEIPASS)
+    else:
+        base = Path(__file__).parent
+    return base / relative_path
 
 
 class FileServer:
@@ -53,9 +63,12 @@ class FileServer:
             size /= 1024
         return f"{size:.1f} PB"
 
-    def _build_file_list(self) -> list[dict]:
+    def _build_file_list(self, subpath: str = "") -> list[dict]:
+        target = self.share_dir / subpath if subpath else self.share_dir
+        if not target.exists() or not target.is_dir():
+            return []
         files = []
-        for f in sorted(self.share_dir.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
+        for f in sorted(target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
             if f.name.startswith("."):
                 continue
             stat = f.stat()
@@ -104,11 +117,13 @@ class FileServer:
         if method == "GET" and clean_path == "/":
             await self._serve_index(writer)
         elif method == "GET" and clean_path == "/api/files":
+            subpath = parsed.query.split("path=", 1)[-1] if "path=" in parsed.query else ""
             await self._serve_json(writer, {
-                "files": self._build_file_list(),
+                "files": self._build_file_list(subpath),
                 "host": self.host,
                 "port": self.port,
                 "share_name": self.share_dir.name,
+                "path": subpath,
                 "uptime": int(time.time() - self._start_time),
                 "upload_count": self._upload_count,
                 "download_count": self._download_count,
@@ -120,7 +135,10 @@ class FileServer:
             filename = clean_path[len("/download/"):]
             await self._serve_file(writer, filename)
         elif method == "POST" and clean_path == "/upload":
-            await self._handle_upload(writer, body_data, headers)
+            subpath = ""
+            if "path=" in parsed.query:
+                subpath = parsed.query.split("path=", 1)[-1]
+            await self._handle_upload(writer, body_data, headers, subpath)
         elif method == "DELETE" and clean_path.startswith("/api/files/"):
             filename = clean_path[len("/api/files/"):]
             await self._handle_delete(writer, filename)
@@ -138,8 +156,7 @@ class FileServer:
         await self._send_response(writer, 200, "application/json", body)
 
     async def _serve_static(self, writer: asyncio.StreamWriter, filename: str):
-        pkg_dir = Path(__file__).parent
-        static_path = pkg_dir / "static" / filename
+        static_path = get_resource_path("static") / filename
         if not static_path.exists() or not static_path.is_file():
             await self._serve_error(writer, 404, "Not Found")
             return
@@ -149,8 +166,10 @@ class FileServer:
         await self._send_response(writer, 200, content_type, body)
 
     async def _serve_file(self, writer: asyncio.StreamWriter, filename: str):
-        safe_name = Path(filename).name
-        file_path = self.share_dir / safe_name
+        file_path = (self.share_dir / filename).resolve()
+        if not str(file_path).startswith(str(self.share_dir)):
+            await self._serve_error(writer, 403, "Forbidden")
+            return
         if not file_path.exists():
             await self._serve_error(writer, 404, "File not found")
             return
@@ -158,8 +177,10 @@ class FileServer:
         self._download_count += 1
 
         if file_path.is_dir():
-            await self._serve_directory_zip(writer, file_path, safe_name)
+            await self._serve_directory_zip(writer, file_path, file_path.name)
             return
+
+        safe_name = file_path.name
 
         content_type, _ = mimetypes.guess_type(str(file_path))
         content_type = content_type or "application/octet-stream"
@@ -207,7 +228,7 @@ class FileServer:
         await writer.drain()
         writer.close()
 
-    async def _handle_upload(self, writer: asyncio.StreamWriter, request_data: bytes, headers: dict):
+    async def _handle_upload(self, writer: asyncio.StreamWriter, request_data: bytes, headers: dict, subpath: str = ""):
         content_type = headers.get("content-type", "")
         if "multipart/form-data" not in content_type:
             await self._serve_json(writer, {"error": "Only multipart uploads supported"})
@@ -240,7 +261,8 @@ class FileServer:
 
             if filename and part_body:
                 safe_name = Path(filename).name
-                dest = self.share_dir / safe_name
+                upload_dir = self.share_dir / subpath if subpath else self.share_dir
+                dest = upload_dir / safe_name
                 counter = 1
                 orig = dest
                 while dest.exists():
@@ -257,7 +279,10 @@ class FileServer:
 
     async def _handle_delete(self, writer: asyncio.StreamWriter, filename: str):
         safe_name = Path(filename).name
-        file_path = self.share_dir / safe_name
+        file_path = (self.share_dir / safe_name).resolve()
+        if not str(file_path).startswith(str(self.share_dir)):
+            await self._serve_error(writer, 403, "Forbidden")
+            return
         if not file_path.exists():
             await self._serve_error(writer, 404, "File not found")
             return
@@ -385,9 +410,14 @@ INDEX_HTML = r"""<!DOCTYPE html>
     <span class="col-date">Modified</span>
     <span class="col-actions">Actions</span>
   </div>
+  <div id="breadcrumb" class="breadcrumb"></div>
   <div class="file-list" id="fileList">
     <div class="loading">Loading files...</div>
   </div>
+</div>
+
+<div id="modal" class="modal" style="display:none">
+  <div class="modal-content" id="modalBody"></div>
 </div>
 
 <footer>

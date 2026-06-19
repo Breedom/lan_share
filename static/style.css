@@ -417,3 +417,85 @@ footer {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 14px;
+  font-size: 13px;
+  flex-wrap: wrap;
+}
+
+.bc-item {
+  color: var(--accent);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.bc-item:hover {
+  text-decoration: underline;
+}
+
+.bc-sep {
+  color: var(--text-dim);
+}
+
+.folder-link {
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.folder-link:hover {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.modal {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  min-width: 320px;
+  max-width: 90vw;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.modal-btn-cancel {
+  margin-top: 4px;
+  opacity: .6;
+  text-align: center;
+  justify-content: center;
+}

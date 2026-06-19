@@ -3,8 +3,6 @@ import os
 import sys
 from pathlib import Path
 
-from server import FileServer
-
 
 def get_default_share_dir() -> Path:
     return Path(__file__).resolve().parent / "shared_data"
@@ -17,22 +15,36 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python __main__.py                     # Use ./shared_data/ folder (auto-created)
-  python __main__.py ./docs --port 9000  # Share ./docs on port 9000
+  python __main__.py                       # Use ./shared_data/ folder (auto-created)
+  python __main__.py ./docs --port 9000    # Share ./docs on port 9000
   python __main__.py D:\\Share --port 8080  # Share a specific directory
+  python __main__.py --gui                 # Launch GUI management panel
         """,
     )
     parser.add_argument(
-        "directory", nargs="?", default=str(default_dir),
+        "directory", nargs="?", default=None,
         help=f"Directory to share (default: {default_dir})"
     )
     parser.add_argument(
         "-p", "--port", type=int, default=8000,
         help="Port to listen on (default: 8000)"
     )
+    parser.add_argument(
+        "--gui", action="store_true", default=False,
+        help="Launch GUI management panel"
+    )
     args = parser.parse_args()
 
-    share_dir = Path(args.directory).resolve()
+    # In PyInstaller bundle, always launch GUI
+    is_bundled = getattr(sys, 'frozen', False)
+    if args.gui or is_bundled:
+        from gui import main as gui_main
+        gui_main()
+        return
+
+    from server import FileServer
+
+    share_dir = Path(args.directory or default_dir).resolve()
     share_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 50)
