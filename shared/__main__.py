@@ -7,7 +7,7 @@ from .server import FileServer
 
 
 def get_default_share_dir() -> Path:
-    return Path(__file__).resolve().parent / "shared"
+    return Path(__file__).resolve().parent / "shared_data"
 
 
 def main():

@@ -14,11 +14,11 @@
 ## 快速开始
 
 ```powershell
-# 启动（默认分享 ./shared/ 目录，端口 8000）
-python -m lan_share
+# 启动（默认分享 shared/shared_data/ 目录，端口 8000）
+python -m shared
 
 # 指定目录和端口
-python -m lan_share D:\Share --port 9000
+python -m shared D:\Share --port 9000
 
 # 或用启动脚本
 .\lan_share.ps1 -Directory D:\Share -Port 8000
@@ -39,16 +39,17 @@ python -m lan_share D:\Share --port 9000
 ## 项目结构
 
 ```
-lan_share/
-  __init__.py    # 包定义
-  __main__.py    # 命令行入口
-  server.py      # HTTP 文件服务器（上传/下载/删除/文件列表）
-  discovery.py   # UDP 广播自动发现
+shared/
+  __init__.py       # 包定义
+  __main__.py       # 命令行入口
+  server.py         # HTTP 文件服务器（上传/下载/删除/文件列表）
+  discovery.py      # UDP 广播自动发现
+  shared_data/      # 分享文件存放目录（自动创建，已 gitignore）
   static/
-    index.html   # Web UI（嵌入在 server.py 中）
-    style.css    # 样式
-    app.js       # 前端逻辑
-lan_share.ps1    # PowerShell 启动脚本
+    index.html      # Web UI（嵌入在 server.py 中）
+    style.css       # 样式
+    app.js          # 前端逻辑
+lan_share.ps1       # PowerShell 启动脚本
 ```
 
 ## 许可证

@@ -15,4 +15,4 @@ Write-Host "  Share files securely over your local network" -ForegroundColor Cya
 Write-Host "================================================" -ForegroundColor Cyan
 Write-Host ""
 
-python -m lan_share $dir --port $Port
+python -m shared $dir --port $Port
