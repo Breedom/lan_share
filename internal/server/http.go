@@ -248,20 +248,13 @@ func (s *HTTPServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *HTTPServer) handleQRCode(w http.ResponseWriter, r *http.Request) {
-	ip := r.Header.Get("X-Forwarded-For")
-	if ip == "" {
-		ip = r.Header.Get("X-Real-IP")
-	}
-	if ip == "" {
-		host, _, _ := net.SplitHostPort(r.RemoteAddr)
-		ip = host
-	}
+	ip := s.getLocalIP()
 
 	url := fmt.Sprintf("http://%s:%d", ip, s.config.Server.HTTPPort)
 
 	size := 256
-	if s := r.URL.Query().Get("size"); s != "" {
-		if n, err := strconv.Atoi(s); err == nil && n >= 128 && n <= 512 {
+	if sz := r.URL.Query().Get("size"); sz != "" {
+		if n, err := strconv.Atoi(sz); err == nil && n >= 128 && n <= 512 {
 			size = n
 		}
 	}
@@ -275,6 +268,21 @@ func (s *HTTPServer) handleQRCode(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "image/png")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Write(png)
+}
+
+func (s *HTTPServer) getLocalIP() string {
+	addrs, err := net.InterfaceAddrs()
+	if err != nil {
+		return "127.0.0.1"
+	}
+	for _, addr := range addrs {
+		if ipNet, ok := addr.(*net.IPNet); ok && !ipNet.IP.IsLoopback() {
+			if ipNet.IP.To4() != nil {
+				return ipNet.IP.String()
+			}
+		}
+	}
+	return "127.0.0.1"
 }
 
 func (s *HTTPServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
