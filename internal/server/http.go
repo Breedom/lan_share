@@ -69,8 +69,10 @@ func (s *HTTPServer) Start() {
 	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(webDir, "static")))))
 
 	addr := fmt.Sprintf(":%d", s.config.Server.HTTPPort)
+	localIP := s.getLocalIP()
 	log.Printf("HTTP server starting on %s", addr)
 	log.Printf("Web UI: http://localhost%s", addr)
+	log.Printf("局域网访问: http://%s%s", localIP, addr)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("HTTP server failed: %v", err)
