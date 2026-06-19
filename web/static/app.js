@@ -1,4 +1,4 @@
-const API_BASE = window.location.origin;
+const API = window.location.origin;
 let ws = null;
 let selectedDevice = null;
 let devices = [];
@@ -6,421 +6,197 @@ let devices = [];
 document.addEventListener('DOMContentLoaded', () => {
     initWebSocket();
     loadDevices();
-    initUploadZone();
+    initUpload();
     loadChatHistory();
     initChatInput();
     initMobileNav();
-    initToasts();
 });
 
+/* ── WebSocket ── */
 function initWebSocket() {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
-
-    ws.onopen = () => {
-        showToast('已连接到服务器', 'success');
-        updateConnectionStatus(true);
-    };
-
-    ws.onmessage = (event) => {
-        try {
-            const msg = JSON.parse(event.data);
-            handleWebSocketMessage(msg);
-        } catch (e) {
-            console.error('Failed to parse message:', e);
-        }
-    };
-
-    ws.onclose = () => {
-        updateConnectionStatus(false);
-        setTimeout(initWebSocket, 3000);
-    };
-
-    ws.onerror = () => {
-        updateConnectionStatus(false);
-    };
+    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    ws = new WebSocket(`${proto}//${location.host}/ws`);
+    ws.onopen = () => { setConnStatus(true); };
+    ws.onmessage = e => { try { handleMsg(JSON.parse(e.data)); } catch(_){} };
+    ws.onclose = () => { setConnStatus(false); setTimeout(initWebSocket, 3000); };
+    ws.onerror = () => setConnStatus(false);
 }
 
-function updateConnectionStatus(connected) {
-    const badge = document.querySelector('.status-badge');
-    const dot = document.querySelector('.status-dot');
-    const text = document.getElementById('device-count');
-
-    if (connected) {
-        badge.style.background = 'rgba(16, 185, 129, 0.15)';
-        badge.style.borderColor = 'rgba(16, 185, 129, 0.3)';
-        dot.style.background = '#10b981';
-        text.textContent = '已连接';
+function setConnStatus(ok) {
+    const el = document.getElementById('conn-status');
+    if (ok) {
+        el.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium';
+        el.innerHTML = '<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span></span>已连接';
     } else {
-        badge.style.background = 'rgba(245, 158, 11, 0.15)';
-        badge.style.borderColor = 'rgba(245, 158, 11, 0.3)';
-        dot.style.background = '#f59e0b';
-        text.textContent = '重连中...';
+        el.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs font-medium';
+        el.innerHTML = '<span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span></span>重连中…';
     }
 }
 
-function handleWebSocketMessage(msg) {
-    switch (msg.type) {
-        case 'chat':
-            appendChatMessage(msg, false);
-            break;
-        case 'transfer':
-            updateTransferProgress(msg);
-            break;
-        case 'device_found':
-            showToast(`发现新设备: ${msg.name}`, 'info');
-            loadDevices();
-            break;
-        case 'device_lost':
-            showToast(`设备离线: ${msg.name}`, 'info');
-            loadDevices();
-            break;
-    }
+function handleMsg(msg) {
+    if (msg.type === 'chat') return appendMsg(msg, false);
+    if (msg.type === 'device_found') { toast(`发现设备: ${msg.name}`, 'info'); loadDevices(); }
+    if (msg.type === 'device_lost') { toast(`设备离线: ${msg.name}`, 'info'); loadDevices(); }
 }
 
+/* ── Devices ── */
 async function loadDevices() {
     try {
-        const response = await fetch(`${API_BASE}/api/peers`);
-        devices = await response.json();
-        renderDevices(devices);
-        updatePeersCount(devices.length);
-    } catch (error) {
-        console.error('Failed to load devices:', error);
-        renderDevices([]);
-    }
+        const r = await fetch(`${API}/api/peers`);
+        devices = await r.json();
+    } catch { devices = []; }
+    renderDevices();
 }
 
-function updatePeersCount(count) {
-    document.getElementById('peers-count').textContent = count;
-}
-
-function renderDevices(deviceList) {
-    const container = document.getElementById('device-list');
-
-    if (deviceList.length === 0) {
-        container.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">🔍</div>
-                <div class="empty-title">搜索设备中...</div>
-                <div class="empty-desc">确保其他设备已开启 LanShare</div>
-            </div>
-        `;
+function renderDevices() {
+    const el = document.getElementById('device-list');
+    document.getElementById('peers-count').textContent = devices.length;
+    if (!devices.length) {
+        el.innerHTML = `<div class="flex flex-col items-center justify-center h-full text-center py-12 opacity-50"><i class="ri-radar-line text-4xl text-slate-500 mb-3"></i><p class="text-sm text-slate-400 font-medium">搜索设备中…</p><p class="text-xs text-slate-600 mt-1">确保其他设备已启动</p></div>`;
         return;
     }
-
-    container.innerHTML = deviceList.map(device => `
-        <div class="device-item ${selectedDevice === device.id ? 'active' : ''}" 
-             data-id="${device.id}" onclick="selectDevice('${device.id}')">
-            <div class="device-avatar">${getDeviceIcon(device.type)}</div>
-            <div class="device-details">
-                <div class="device-name">${escapeHtml(device.name)}</div>
-                <div class="device-meta">
-                    <span class="device-status-indicator"></span>
-                    ${device.ip}
-                </div>
+    el.innerHTML = devices.map((d,i) => `
+        <div class="device-item glass-card rounded-xl p-3 flex items-center gap-3 cursor-pointer ${selectedDevice===d.id?'active':''}"
+             onclick="pickDevice('${d.id}')" style="animation-delay:${i*50}ms">
+            <div class="w-11 h-11 rounded-xl bg-gradient-to-br from-brand-500/80 to-purple-500/80 flex items-center justify-center text-xl flex-shrink-0 shadow-lg shadow-brand-500/20">${icon4type(d.type)}</div>
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-white truncate">${esc(d.name)}</p>
+                <p class="text-[11px] text-slate-500 flex items-center gap-1.5 mt-0.5"><span class="w-1.5 h-1.5 rounded-full bg-emerald-500 flex-shrink-0"></span>${d.ip}</p>
             </div>
-        </div>
-    `).join('');
+            <i class="ri-arrow-right-s-line text-slate-600"></i>
+        </div>`).join('');
 }
 
-function getDeviceIcon(type) {
-    const icons = {
-        'windows': '💻',
-        'android': '📱',
-        'linux': '🐧',
-        'macos': '🍎'
-    };
-    return icons[type] || '💻';
+function icon4type(t) {
+    return {windows:'💻',android:'📱',linux:'🐧',macos:'🍎'}[t]||'💻';
 }
 
-function selectDevice(deviceId) {
-    selectedDevice = deviceId;
-
-    document.querySelectorAll('.device-item').forEach(el => {
-        el.classList.remove('active');
-    });
-
-    const selected = document.querySelector(`[data-id="${deviceId}"]`);
-    if (selected) {
-        selected.classList.add('active');
-    }
-
-    const sendBtn = document.getElementById('send-btn');
-    sendBtn.disabled = false;
-
-    const device = devices.find(d => d.id === deviceId);
-    if (device) {
-        showToast(`已选择: ${device.name}`, 'info');
-    }
+function pickDevice(id) {
+    selectedDevice = id;
+    document.getElementById('message-input').disabled = false;
+    document.getElementById('send-btn').disabled = false;
+    renderDevices();
+    const d = devices.find(x=>x.id===id);
+    if (d) toast(`已选择 ${d.name}`, 'success');
 }
 
-function initUploadZone() {
+/* ── Upload ── */
+function initUpload() {
     const zone = document.getElementById('upload-zone');
-    const fileInput = document.getElementById('file-input');
-    const uploadBtn = document.getElementById('upload-btn');
-
-    uploadBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        fileInput.click();
-    });
-
-    zone.addEventListener('click', () => fileInput.click());
-
-    zone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        zone.classList.add('dragover');
-    });
-
-    zone.addEventListener('dragleave', () => {
-        zone.classList.remove('dragover');
-    });
-
-    zone.addEventListener('drop', (e) => {
-        e.preventDefault();
-        zone.classList.remove('dragover');
-        handleFiles(e.dataTransfer.files);
-    });
-
-    fileInput.addEventListener('change', (e) => {
-        handleFiles(e.target.files);
-        e.target.value = '';
-    });
+    const input = document.getElementById('file-input');
+    document.getElementById('upload-btn').onclick = e => { e.stopPropagation(); input.click(); };
+    zone.onclick = () => input.click();
+    zone.ondragover = e => { e.preventDefault(); zone.classList.add('dragover'); };
+    zone.ondragleave = () => zone.classList.remove('dragover');
+    zone.ondrop = e => { e.preventDefault(); zone.classList.remove('dragover'); uploadFiles(e.dataTransfer.files); };
+    input.onchange = e => { uploadFiles(e.target.files); e.target.value=''; };
 }
 
-async function handleFiles(files) {
-    if (!selectedDevice) {
-        showToast('请先选择目标设备', 'error');
-        return;
-    }
-
-    if (files.length === 0) return;
-
-    showToast(`准备发送 ${files.length} 个文件`, 'info');
-
-    for (const file of files) {
-        await uploadFile(file);
-    }
+async function uploadFiles(fileList) {
+    if (!selectedDevice) return toast('请先选择目标设备','error');
+    for (const f of fileList) await doUpload(f);
 }
 
-async function uploadFile(file) {
-    const formData = new FormData();
-    formData.append('file', file);
-
-    const transferId = `transfer-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-    addTransferItem(transferId, file.name, file.size, 'uploading');
-
+async function doUpload(file) {
+    const id = 't-'+Date.now()+'-'+Math.random().toString(36).slice(2,7);
+    addTransferItem(id, file.name, file.size);
+    const fd = new FormData(); fd.append('file', file);
     try {
-        const response = await fetch(`${API_BASE}/api/upload/Downloads`, {
-            method: 'POST',
-            body: formData
-        });
-
-        if (response.ok) {
-            updateTransferStatus(transferId, 'success', 100, '完成');
-            showToast(`${file.name} 发送成功`, 'success');
-        } else {
-            updateTransferStatus(transferId, 'error', 0, '失败');
-            showToast(`${file.name} 发送失败`, 'error');
-        }
-    } catch (error) {
-        updateTransferStatus(transferId, 'error', 0, '错误');
-        showToast(`${file.name} 发送出错`, 'error');
-    }
+        const r = await fetch(`${API}/api/upload/Downloads`, {method:'POST',body:fd});
+        if (r.ok) { setTransferDone(id, true); toast(`${file.name} 发送成功`,'success'); }
+        else { setTransferDone(id, false); toast(`${file.name} 发送失败`,'error'); }
+    } catch { setTransferDone(id, false); toast(`${file.name} 出错`,'error'); }
 }
 
-function addTransferItem(id, name, size, status) {
-    const container = document.getElementById('transfer-list');
-    const sizeStr = formatSize(size);
-    const icon = getFileIcon(name);
-
-    const html = `
-        <div class="transfer-item" id="${id}">
-            <div class="transfer-file-icon">${icon}</div>
-            <div class="transfer-details">
-                <div class="transfer-name">${escapeHtml(name)}</div>
-                <div class="transfer-progress">
-                    <div class="transfer-progress-bar" style="width: 0%"></div>
-                </div>
-                <div class="transfer-meta">
-                    <span class="transfer-status ${status}">等待中...</span>
-                    <span>${sizeStr}</span>
-                </div>
-            </div>
+function addTransferItem(id, name, size) {
+    const el = document.getElementById('transfer-list');
+    const ext = name.split('.').pop().toLowerCase();
+    const icon = {jpg:'🖼',jpeg:'🖼',png:'🖼',gif:'🖼',mp4:'🎬',avi:'🎬',mp3:'🎵',pdf:'📄',doc:'📄',zip:'📦',rar:'📦'}[ext]||'📄';
+    const html = `<div id="${id}" class="glass-card rounded-xl p-3.5 flex items-center gap-3 animate-fade-in">
+        <div class="w-11 h-11 rounded-xl bg-brand-500/10 flex items-center justify-center text-xl flex-shrink-0">${icon}</div>
+        <div class="flex-1 min-w-0">
+            <p class="text-sm font-medium text-white truncate">${esc(name)}</p>
+            <div class="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden"><div class="progress-bar h-full rounded-full" style="width:0%"></div></div>
+            <div class="flex justify-between mt-1.5"><span class="text-[11px] text-slate-500 upload-status">发送中…</span><span class="text-[11px] text-slate-500">${fmtSize(size)}</span></div>
         </div>
-    `;
-
-    container.insertAdjacentHTML('afterbegin', html);
+    </div>`;
+    el.insertAdjacentHTML('afterbegin', html);
 }
 
-function updateTransferStatus(id, status, progress, text) {
-    const item = document.getElementById(id);
-    if (!item) return;
-
-    const progressBar = item.querySelector('.transfer-progress-bar');
-    const statusEl = item.querySelector('.transfer-status');
-
-    progressBar.style.width = `${progress}%`;
-    statusEl.className = `transfer-status ${status}`;
-    statusEl.textContent = text;
+function setTransferDone(id, ok) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const bar = el.querySelector('.progress-bar');
+    const status = el.querySelector('.upload-status');
+    bar.style.width = '100%';
+    bar.classList.remove('progress-bar');
+    bar.style.background = ok ? '#10b981' : '#ef4444';
+    status.textContent = ok ? '✓ 完成' : '✕ 失败';
+    status.className = `text-[11px] ${ok?'text-emerald-400':'text-red-400'}`;
 }
 
-function getFileIcon(filename) {
-    const ext = filename.split('.').pop().toLowerCase();
-    const icons = {
-        'jpg': '🖼️', 'jpeg': '🖼️', 'png': '🖼️', 'gif': '🖼️', 'svg': '🖼️',
-        'mp4': '🎬', 'avi': '🎬', 'mov': '🎬', 'mkv': '🎬',
-        'mp3': '🎵', 'wav': '🎵', 'flac': '🎵',
-        'pdf': '📄', 'doc': '📄', 'docx': '📄', 'txt': '📄',
-        'xls': '📊', 'xlsx': '📊', 'csv': '📊',
-        'zip': '📦', 'rar': '📦', '7z': '📦',
-        'exe': '⚙️', 'dmg': '⚙️',
-    };
-    return icons[ext] || '📄';
+function fmtSize(b) {
+    if (!b) return '0 B';
+    const u = ['B','KB','MB','GB','TB'];
+    const i = Math.floor(Math.log(b)/Math.log(1024));
+    return (b/Math.pow(1024,i)).toFixed(1)+' '+u[i];
 }
 
-function formatSize(bytes) {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-}
-
+/* ── Chat ── */
 async function loadChatHistory() {
-    try {
-        const response = await fetch(`${API_BASE}/api/chat/history`);
-        const messages = await response.json();
-        messages.forEach(msg => appendChatMessage(msg, msg.from === 'local'));
-    } catch (error) {
-        console.error('Failed to load chat history:', error);
-    }
+    try { const r = await fetch(`${API}/api/chat/history`); (await r.json()).forEach(m=>appendMsg(m,m.from==='local')); } catch {}
 }
 
-function appendChatMessage(msg, isSent) {
-    const container = document.getElementById('chat-messages');
-    const time = new Date(msg.timestamp).toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
-    });
-
-    const html = `
-        <div class="message ${isSent ? 'sent' : 'received'}">
-            <div class="message-bubble">${escapeHtml(msg.content)}</div>
-            <div class="message-info">
-                <span class="message-sender">${isSent ? '我' : escapeHtml(msg.from_name || '未知')}</span>
-                <span class="message-time">${time}</span>
+function appendMsg(msg, sent) {
+    const el = document.getElementById('chat-messages');
+    const t = new Date(msg.timestamp).toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    el.insertAdjacentHTML('beforeend', `
+        <div class="flex ${sent?'justify-end':'justify-start'} animate-fade-in">
+            <div class="msg-bubble ${sent?'msg-sent':'msg-recv'} px-4 py-2.5 rounded-2xl ${sent?'rounded-br-md':'rounded-bl-md'}">
+                <p class="text-sm leading-relaxed">${esc(msg.content)}</p>
+                <p class="text-[10px] ${sent?'text-white/50':'text-slate-500'} mt-1">${sent?'我':esc(msg.from_name||'')} · ${t}</p>
             </div>
-        </div>
-    `;
-
-    container.insertAdjacentHTML('beforeend', html);
-    container.scrollTop = container.scrollHeight;
+        </div>`);
+    el.scrollTop = el.scrollHeight;
 }
 
 function initChatInput() {
     const input = document.getElementById('message-input');
     const btn = document.getElementById('send-btn');
-
-    const sendMessage = () => {
-        const content = input.value.trim();
-        if (!content || !selectedDevice) return;
-
-        if (ws && ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({
-                type: 'chat',
-                payload: {
-                    to: selectedDevice,
-                    content: content
-                }
-            }));
-
-            appendChatMessage({
-                from: 'local',
-                from_name: '我',
-                content: content,
-                timestamp: new Date().toISOString()
-            }, true);
-
-            input.value = '';
-        } else {
-            showToast('未连接到服务器', 'error');
-        }
+    const send = () => {
+        const c = input.value.trim();
+        if (!c||!selectedDevice||!ws||ws.readyState!==1) return;
+        ws.send(JSON.stringify({type:'chat',payload:{to:selectedDevice,content:c}}));
+        appendMsg({from:'local',from_name:'我',content:c,timestamp:new Date().toISOString()},true);
+        input.value = '';
     };
-
-    btn.addEventListener('click', sendMessage);
-    input.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            sendMessage();
-        }
-    });
-
-    input.addEventListener('input', () => {
-        btn.disabled = !input.value.trim() || !selectedDevice;
-    });
+    btn.onclick = send;
+    input.onkeydown = e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();send();} };
 }
 
+/* ── Mobile Nav ── */
 function initMobileNav() {
-    const navItems = document.querySelectorAll('.nav-item');
-
-    navItems.forEach(item => {
-        item.addEventListener('click', () => {
-            const tab = item.dataset.tab;
-
-            navItems.forEach(n => n.classList.remove('active'));
-            item.classList.add('active');
-
-            document.querySelectorAll('.card').forEach(card => {
-                card.classList.add('hidden');
+    document.querySelectorAll('.nav-btn').forEach(btn => {
+        btn.onclick = () => {
+            document.querySelectorAll('.nav-btn').forEach(b=>{b.classList.remove('active');b.classList.add('text-slate-500');});
+            btn.classList.add('active'); btn.classList.remove('text-slate-500');
+            ['devices','transfer','chat'].forEach(p => {
+                document.getElementById('panel-'+p).classList.toggle('hidden', p!==btn.dataset.tab);
             });
-
-            const targetCard = document.getElementById(`${tab}-card`);
-            if (targetCard) {
-                targetCard.classList.remove('hidden');
-            }
-        });
+        };
     });
 }
 
-function initToasts() {
-    window.showToast = showToast;
+/* ── Toast ── */
+function toast(msg, type='info') {
+    const c = document.getElementById('toast-container');
+    const icons = {success:'ri-checkbox-circle-fill text-emerald-400',error:'ri-close-circle-fill text-red-400',info:'ri-information-fill text-sky-400'};
+    const bg = {success:'bg-emerald-500/10 border-emerald-500/20',error:'bg-red-500/10 border-red-500/20',info:'bg-sky-500/10 border-sky-500/20'};
+    const id = 'toast-'+Date.now();
+    c.insertAdjacentHTML('beforeend', `<div id="${id}" class="toast pointer-events-auto glass ${bg[type]} border rounded-xl px-4 py-3 flex items-center gap-3 shadow-2xl min-w-[260px] max-w-[360px]"><i class="${icons[type]} text-xl flex-shrink-0"></i><span class="text-sm text-slate-200 flex-1">${esc(msg)}</span><button onclick="document.getElementById('${id}').remove()" class="text-slate-500 hover:text-white transition-colors"><i class="ri-close-line"></i></button></div>`);
+    setTimeout(()=>{const t=document.getElementById(id);if(t){t.classList.add('toast-exit');setTimeout(()=>t.remove(),300);}},3500);
 }
 
-function showToast(message, type = 'info') {
-    const container = document.getElementById('toast-container');
-    const id = `toast-${Date.now()}`;
-
-    const icons = {
-        success: '✓',
-        error: '✕',
-        info: 'ℹ'
-    };
-
-    const html = `
-        <div class="toast ${type}" id="${id}">
-            <span class="toast-icon">${icons[type]}</span>
-            <span class="toast-message">${escapeHtml(message)}</span>
-            <button class="toast-close" onclick="removeToast('${id}')">✕</button>
-        </div>
-    `;
-
-    container.insertAdjacentHTML('beforeend', html);
-
-    setTimeout(() => removeToast(id), 4000);
-}
-
-function removeToast(id) {
-    const toast = document.getElementById(id);
-    if (toast) {
-        toast.style.animation = 'toastIn 0.3s ease reverse';
-        setTimeout(() => toast.remove(), 300);
-    }
-}
-
-function escapeHtml(text) {
-    const div = document.createElement('div');
-    div.textContent = text;
-    return div.innerHTML;
-}
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
 setInterval(loadDevices, 5000);

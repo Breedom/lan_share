@@ -55,8 +55,16 @@ func (s *HTTPServer) Start() {
 	mux.HandleFunc("/api/chat/history", s.handleChatHistory)
 	mux.HandleFunc("/ws", s.handleWebSocket)
 
+	exePath, _ := os.Executable()
+	webDir := filepath.Join(filepath.Dir(exePath), "web")
+	if _, err := os.Stat(filepath.Join(webDir, "static")); os.IsNotExist(err) {
+		webDir = filepath.Join("web")
+	}
+	mux.Handle("/static/", http.StripPrefix("/static/", http.FileServer(http.Dir(filepath.Join(webDir, "static")))))
+
 	addr := fmt.Sprintf(":%d", s.config.Server.HTTPPort)
 	log.Printf("HTTP server starting on %s", addr)
+	log.Printf("Web UI: http://localhost%s", addr)
 
 	if err := http.ListenAndServe(addr, mux); err != nil {
 		log.Fatalf("HTTP server failed: %v", err)
@@ -69,119 +77,13 @@ func (s *HTTPServer) handleIndex(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	html := `<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>LanShare</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/static/style.css">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📡</text></svg>">
-</head>
-<body>
-    <div class="app">
-        <header class="header">
-            <div class="header-content">
-                <div class="logo">
-                    <div class="logo-icon">📡</div>
-                    <div class="logo-text">
-                        <h1>LanShare</h1>
-                        <p>局域网文件共享</p>
-                    </div>
-                </div>
-                <div class="header-status">
-                    <div class="status-badge">
-                        <span class="status-dot"></span>
-                        <span id="device-count">在线</span>
-                    </div>
-                </div>
-            </div>
-        </header>
+	exePath, _ := os.Executable()
+	webDir := filepath.Join(filepath.Dir(exePath), "web")
+	if _, err := os.Stat(filepath.Join(webDir, "index.html")); os.IsNotExist(err) {
+		webDir = filepath.Join("web")
+	}
 
-        <main class="main">
-            <div class="content-grid">
-                <div class="card" id="devices-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <span class="card-title-icon">📱</span>
-                            设备列表
-                        </div>
-                        <span class="card-badge" id="peers-count">0</span>
-                    </div>
-                    <div class="card-body">
-                        <div id="device-list" class="device-list"></div>
-                    </div>
-                </div>
-
-                <div class="card" id="transfer-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <span class="card-title-icon">📁</span>
-                            文件传输
-                        </div>
-                    </div>
-                    <div class="card-body transfer-section">
-                        <div class="upload-zone" id="upload-zone">
-                            <div class="upload-icon">☁️</div>
-                            <p class="upload-text">拖拽文件到此处上传</p>
-                            <p class="upload-hint">或点击选择文件</p>
-                            <button class="upload-btn" id="upload-btn">
-                                <span>📎</span> 选择文件
-                            </button>
-                            <input type="file" id="file-input" multiple hidden>
-                        </div>
-                        <div id="transfer-list" class="transfer-list"></div>
-                    </div>
-                </div>
-
-                <div class="card chat-section" id="chat-card">
-                    <div class="card-header">
-                        <div class="card-title">
-                            <span class="card-title-icon">💬</span>
-                            消息
-                        </div>
-                    </div>
-                    <div class="chat-messages" id="chat-messages"></div>
-                    <div class="chat-input-area">
-                        <div class="chat-input-wrapper">
-                            <input type="text" class="chat-input" id="message-input" placeholder="输入消息...">
-                            <button class="chat-send-btn" id="send-btn" disabled>
-                                <span>➤</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </main>
-
-        <div class="toast-container" id="toast-container"></div>
-
-        <nav class="mobile-nav">
-            <div class="nav-items">
-                <button class="nav-item active" data-tab="devices">
-                    <span class="nav-item-icon">📱</span>
-                    设备
-                </button>
-                <button class="nav-item" data-tab="transfer">
-                    <span class="nav-item-icon">📁</span>
-                    传输
-                </button>
-                <button class="nav-item" data-tab="chat">
-                    <span class="nav-item-icon">💬</span>
-                    消息
-                </button>
-            </div>
-        </nav>
-    </div>
-    <script src="/static/app.js"></script>
-</body>
-</html>`
-
-	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.Write([]byte(html))
+	http.ServeFile(w, r, filepath.Join(webDir, "index.html"))
 }
 
 func (s *HTTPServer) handleDeviceInfo(w http.ResponseWriter, r *http.Request) {

@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>LanShare</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/remixicon@4.1.0/fonts/remixicon.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: {
+                        brand: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca',800:'#3730a3',900:'#312e81' }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:'Inter',sans-serif; background:#0a0e1a; min-height:100vh; overflow-x:hidden; }
+        .bg-mesh { position:fixed; inset:0; z-index:0; background:
+            radial-gradient(ellipse 80% 60% at 10% 20%, rgba(99,102,241,0.12) 0%, transparent 60%),
+            radial-gradient(ellipse 60% 80% at 90% 80%, rgba(236,72,153,0.08) 0%, transparent 60%),
+            radial-gradient(ellipse 50% 50% at 50% 50%, rgba(56,189,248,0.05) 0%, transparent 60%);
+        }
+        .glass { background:rgba(15,23,42,0.6); backdrop-filter:blur(24px) saturate(1.4); border:1px solid rgba(255,255,255,0.06); }
+        .glass-card { background:rgba(30,41,59,0.5); backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.08); }
+        .glass-card:hover { border-color:rgba(99,102,241,0.3); background:rgba(30,41,59,0.65); }
+        .glow-brand { box-shadow:0 0 30px rgba(99,102,241,0.15), 0 0 60px rgba(99,102,241,0.05); }
+        .glow-success { box-shadow:0 0 20px rgba(16,185,129,0.2); }
+        .glow-upload { box-shadow:0 0 40px rgba(99,102,241,0.25); }
+        .btn-brand { background:linear-gradient(135deg,#6366f1,#8b5cf6); transition:all .25s; }
+        .btn-brand:hover { transform:translateY(-2px); box-shadow:0 8px 25px rgba(99,102,241,0.4); }
+        .btn-brand:active { transform:translateY(0); }
+        .progress-bar { background:linear-gradient(90deg,#6366f1,#a855f7,#ec4899); background-size:200% 100%; animation:shimmer 2s linear infinite; }
+        @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+        @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+        @keyframes slideInRight { from{opacity:0;transform:translateX(24px)} to{opacity:1;transform:translateX(0)} }
+        @keyframes pulse-ring { 0%{transform:scale(1);opacity:1} 100%{transform:scale(2.2);opacity:0} }
+        .animate-fade-in { animation:fadeInUp .4s ease both; }
+        .animate-slide-in { animation:slideInRight .3s ease both; }
+        .device-item { transition:all .2s ease; }
+        .device-item:hover { transform:translateX(6px); }
+        .device-item.active { background:linear-gradient(135deg,rgba(99,102,241,0.2),rgba(139,92,246,0.15)); border-color:rgba(99,102,241,0.5); }
+        .upload-zone { transition:all .3s ease; border:2px dashed rgba(255,255,255,0.12); }
+        .upload-zone:hover { border-color:rgba(99,102,241,0.5); }
+        .upload-zone.dragover { border-color:#6366f1; background:rgba(99,102,241,0.08); transform:scale(1.01); }
+        .msg-bubble { max-width:80%; word-wrap:break-word; }
+        .msg-sent { background:linear-gradient(135deg,#6366f1,#7c3aed); }
+        .msg-recv { background:rgba(51,65,85,0.8); }
+        .toast { animation:slideInRight .35s cubic-bezier(.16,1,.3,1) both; }
+        .toast-exit { animation:slideInRight .25s ease reverse both; }
+        ::-webkit-scrollbar { width:5px; }
+        ::-webkit-scrollbar-track { background:transparent; }
+        ::-webkit-scrollbar-thumb { background:rgba(255,255,255,0.1); border-radius:99px; }
+        ::-webkit-scrollbar-thumb:hover { background:rgba(255,255,255,0.2); }
+        @media(max-width:1024px) {
+            .desktop-only { display:none !important; }
+            .mobile-nav { display:flex !important; }
+            body { padding-bottom:72px; }
+        }
+        @media(min-width:1025px) {
+            .mobile-only { display:none !important; }
+        }
+    </style>
+</head>
+<body class="text-slate-200">
+    <div class="bg-mesh"></div>
+
+    <div class="relative z-10 min-h-screen flex flex-col">
+        <!-- Header -->
+        <header class="glass sticky top-0 z-50 border-b border-white/5">
+            <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-white text-lg shadow-lg shadow-brand-500/25">
+                        <i class="ri-share-forward-line"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-base font-bold text-white tracking-tight">LanShare</h1>
+                        <p class="text-[11px] text-slate-500 font-medium">局域网文件共享</p>
+                    </div>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div id="conn-status" class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-medium">
+                        <span class="relative flex h-2 w-2">
+                            <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                        </span>
+                        已连接
+                    </div>
+                    <div class="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-all">
+                        <i class="ri-settings-3-line text-lg"></i>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main -->
+        <main class="flex-1 max-w-[1440px] mx-auto w-full px-4 sm:px-6 py-5">
+            <div class="grid grid-cols-1 lg:grid-cols-[300px_1fr_340px] gap-4 h-[calc(100vh-100px)]">
+
+                <!-- Devices Panel -->
+                <div id="panel-devices" class="glass-card rounded-2xl flex flex-col overflow-hidden animate-fade-in">
+                    <div class="px-5 py-4 border-b border-white/5 flex items-center justify-between">
+                        <div class="flex items-center gap-2.5">
+                            <i class="ri-smartphone-line text-brand-400 text-lg"></i>
+                            <span class="font-semibold text-sm text-white">设备</span>
+                        </div>
+                        <span id="peers-count" class="min-w-[24px] h-6 px-2 rounded-full bg-brand-500/15 text-brand-400 text-xs font-bold flex items-center justify-center">0</span>
+                    </div>
+                    <div id="device-list" class="flex-1 overflow-y-auto p-3 space-y-2"></div>
+                </div>
+
+                <!-- Transfer Panel -->
+                <div id="panel-transfer" class="glass-card rounded-2xl flex flex-col overflow-hidden animate-fade-in" style="animation-delay:.05s">
+                    <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2.5">
+                        <i class="ri-file-upload-line text-brand-400 text-lg"></i>
+                        <span class="font-semibold text-sm text-white">文件传输</span>
+                    </div>
+                    <div class="flex-1 overflow-y-auto p-4 space-y-4">
+                        <div id="upload-zone" class="upload-zone rounded-2xl p-8 text-center cursor-pointer relative overflow-hidden group">
+                            <div class="absolute inset-0 bg-gradient-to-br from-brand-500/5 to-purple-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                            <div class="relative z-10">
+                                <div class="w-16 h-20 mx-auto mb-4 rounded-2xl bg-white/5 border-2 border-dashed border-white/10 flex items-center justify-center">
+                                    <i class="ri-upload-cloud-2-line text-3xl text-brand-400"></i>
+                                </div>
+                                <p class="text-sm text-slate-300 font-medium mb-1">拖拽文件到这里</p>
+                                <p class="text-xs text-slate-500 mb-4">或者</p>
+                                <button id="upload-btn" class="btn-brand px-5 py-2.5 rounded-xl text-white text-sm font-semibold inline-flex items-center gap-2">
+                                    <i class="ri-folder-open-line"></i> 选择文件
+                                </button>
+                            </div>
+                            <input type="file" id="file-input" multiple hidden>
+                        </div>
+                        <div id="transfer-list" class="space-y-2.5"></div>
+                    </div>
+                </div>
+
+                <!-- Chat Panel -->
+                <div id="panel-chat" class="glass-card rounded-2xl flex flex-col overflow-hidden animate-fade-in" style="animation-delay:.1s">
+                    <div class="px-5 py-4 border-b border-white/5 flex items-center gap-2.5">
+                        <i class="ri-chat-3-line text-brand-400 text-lg"></i>
+                        <span class="font-semibold text-sm text-white">消息</span>
+                    </div>
+                    <div id="chat-messages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+                    <div class="p-3 border-t border-white/5">
+                        <div class="flex items-center gap-2">
+                            <input type="text" id="message-input" class="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm text-white placeholder-slate-500 outline-none focus:border-brand-500/50 focus:ring-2 focus:ring-brand-500/20 transition-all" placeholder="输入消息..." disabled>
+                            <button id="send-btn" class="w-10 h-10 rounded-xl bg-gradient-to-br from-brand-500 to-purple-500 flex items-center justify-center text-white disabled:opacity-30 disabled:cursor-not-allowed hover:shadow-lg hover:shadow-brand-500/25 transition-all" disabled>
+                                <i class="ri-send-plane-2-fill text-lg"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Mobile Nav -->
+        <nav class="mobile-nav glass fixed bottom-0 left-0 right-0 z-50 border-t border-white/5 px-4 py-2 hidden">
+            <div class="flex items-center justify-around">
+                <button class="nav-btn active flex flex-col items-center gap-1 px-4 py-2 rounded-xl transition-all" data-tab="devices">
+                    <i class="ri-smartphone-line text-xl"></i>
+                    <span class="text-[10px] font-medium">设备</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-slate-500 transition-all" data-tab="transfer">
+                    <i class="ri-file-upload-line text-xl"></i>
+                    <span class="text-[10px] font-medium">传输</span>
+                </button>
+                <button class="nav-btn flex flex-col items-center gap-1 px-4 py-2 rounded-xl text-slate-500 transition-all" data-tab="chat">
+                    <i class="ri-chat-3-line text-xl"></i>
+                    <span class="text-[10px] font-medium">消息</span>
+                </button>
+            </div>
+        </nav>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
