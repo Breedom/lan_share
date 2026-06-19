@@ -12,17 +12,19 @@ import (
 func main() {
 	config := core.LoadConfig()
 
+	core.EnsureFirewallRule(config.Server.UDPPort)
+
 	discovery := core.NewDiscovery(config)
 	if err := discovery.Start(); err != nil {
 		log.Fatalf("Failed to start discovery: %v", err)
 	}
 	defer discovery.Stop()
 
-	httpServer := server.NewHTTPServer(config)
-	go httpServer.Start()
-
 	transfer := core.NewTransferManager(config)
 	transfer.Start()
+
+	httpServer := server.NewHTTPServer(config)
+	go httpServer.Start()
 
 	fmt.Println("LanShare started. Press Ctrl+C to exit.")
 	fmt.Printf("Web UI: http://localhost:%d\n", config.Server.HTTPPort)
