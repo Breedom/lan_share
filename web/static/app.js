@@ -199,6 +199,30 @@ function toast(msg, type='info') {
 
 function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
+/* ── QR Code ── */
+function openQRCode() {
+    document.getElementById('qrcode-modal').classList.remove('hidden');
+    document.getElementById('qrcode-url').textContent = window.location.href;
+}
+
+function closeQRCode() {
+    document.getElementById('qrcode-modal').classList.add('hidden');
+}
+
+function copyURL() {
+    navigator.clipboard.writeText(window.location.href).then(() => {
+        toast('链接已复制', 'success');
+    }).catch(() => {
+        const input = document.createElement('input');
+        input.value = window.location.href;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        document.body.removeChild(input);
+        toast('链接已复制', 'success');
+    });
+}
+
 /* ── Settings ── */
 let currentSettings = {};
 

@@ -92,6 +92,9 @@
                         </span>
                         已连接
                     </div>
+                    <div class="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-all" onclick="openQRCode()" title="手机扫码连接">
+                        <i class="ri-qr-code-line text-lg"></i>
+                    </div>
                     <div class="w-9 h-9 rounded-xl bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 cursor-pointer transition-all" onclick="openSettings()">
                         <i class="ri-settings-3-line text-lg"></i>
                     </div>
@@ -180,6 +183,38 @@
 
     <!-- Toast Container -->
     <div id="toast-container" class="fixed top-20 right-4 z-[100] flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- QR Code Modal -->
+    <div id="qrcode-modal" class="fixed inset-0 z-[200] hidden">
+        <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" onclick="closeQRCode()"></div>
+        <div class="absolute inset-0 flex items-center justify-center p-4">
+            <div class="glass-card rounded-2xl w-full max-w-sm overflow-hidden animate-fade-in">
+                <div class="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-xl bg-brand-500/15 flex items-center justify-center">
+                            <i class="ri-qr-code-line text-brand-400 text-lg"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-base font-semibold text-white">扫码连接</h2>
+                            <p class="text-[11px] text-slate-500">手机扫描二维码打开</p>
+                        </div>
+                    </div>
+                    <button onclick="closeQRCode()" class="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/10 transition-all">
+                        <i class="ri-close-line"></i>
+                    </button>
+                </div>
+                <div class="p-8 flex flex-col items-center">
+                    <div class="bg-white p-4 rounded-2xl shadow-xl shadow-brand-500/10">
+                        <img id="qrcode-img" src="/api/qrcode" alt="QR Code" class="w-48 h-48">
+                    </div>
+                    <p id="qrcode-url" class="mt-4 text-xs text-slate-400 text-center break-all"></p>
+                    <button onclick="copyURL()" class="mt-4 px-5 py-2.5 rounded-xl bg-white/5 text-sm text-slate-300 hover:bg-white/10 transition-all flex items-center gap-2">
+                        <i class="ri-file-copy-line"></i> 复制链接
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="fixed inset-0 z-[200] hidden">

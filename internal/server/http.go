@@ -5,14 +5,17 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/Breedom/lan_share/internal/core"
 	"github.com/gorilla/websocket"
+	qrcode "github.com/skip2/go-qrcode"
 )
 
 type HTTPServer struct {
@@ -54,6 +57,7 @@ func (s *HTTPServer) Start() {
 	mux.HandleFunc("/api/download/", s.handleDownload)
 	mux.HandleFunc("/api/upload/", s.handleUpload)
 	mux.HandleFunc("/api/chat/history", s.handleChatHistory)
+	mux.HandleFunc("/api/qrcode", s.handleQRCode)
 	mux.HandleFunc("/ws", s.handleWebSocket)
 
 	exePath, _ := os.Executable()
@@ -241,6 +245,36 @@ func (s *HTTPServer) handleSettings(w http.ResponseWriter, r *http.Request) {
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func (s *HTTPServer) handleQRCode(w http.ResponseWriter, r *http.Request) {
+	ip := r.Header.Get("X-Forwarded-For")
+	if ip == "" {
+		ip = r.Header.Get("X-Real-IP")
+	}
+	if ip == "" {
+		host, _, _ := net.SplitHostPort(r.RemoteAddr)
+		ip = host
+	}
+
+	url := fmt.Sprintf("http://%s:%d", ip, s.config.Server.HTTPPort)
+
+	size := 256
+	if s := r.URL.Query().Get("size"); s != "" {
+		if n, err := strconv.Atoi(s); err == nil && n >= 128 && n <= 512 {
+			size = n
+		}
+	}
+
+	png, err := qrcode.Encode(url, qrcode.Medium, size)
+	if err != nil {
+		http.Error(w, "Failed to generate QR code", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "image/png")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Write(png)
 }
 
 func (s *HTTPServer) handleWebSocket(w http.ResponseWriter, r *http.Request) {
