@@ -186,17 +186,18 @@ func (tm *TransferManager) handleMeta(conn net.Conn, pkt *PacketHeader) {
 		return
 	}
 
+	sid := fmt.Sprintf("%d", pkt.SessionID)
 	sharePath := tm.getSharePath(meta.Path)
 	if sharePath == "" {
-		tm.sendError(conn, pkt.SessionID, "no share path")
+		tm.sendError(conn, sid, "no share path")
 		return
 	}
 
 	fullPath := filepath.Join(sharePath, meta.Name)
 
 	tm.mu.Lock()
-	tm.sessions[fmt.Sprintf("%d", pkt.SessionID)] = &TransferSession{
-		ID:       fmt.Sprintf("%d", pkt.SessionID),
+	tm.sessions[sid] = &TransferSession{
+		ID:       sid,
 		FilePath: fullPath,
 		FileSize: meta.Size,
 	}
@@ -207,7 +208,7 @@ func (tm *TransferManager) handleMeta(conn net.Conn, pkt *PacketHeader) {
 		existingSize = info.Size()
 	}
 
-	tm.sendAck(conn, pkt.SessionID, existingSize)
+	tm.sendAck(conn, sid, existingSize)
 }
 
 func (tm *TransferManager) handleData(conn net.Conn, pkt *PacketHeader) {
@@ -238,11 +239,13 @@ func (tm *TransferManager) handleData(conn net.Conn, pkt *PacketHeader) {
 	offset := int64(pkt.Sequence) * ChunkSize
 	file.WriteAt(decrypted, offset)
 
-	tm.sendAck(conn, pkt.SessionID, offset+int64(len(decrypted)))
+	sid := fmt.Sprintf("%d", pkt.SessionID)
+	tm.sendAck(conn, sid, offset+int64(len(decrypted)))
 }
 
 func (tm *TransferManager) handleResume(conn net.Conn, pkt *PacketHeader) {
-	tm.sendAck(conn, pkt.SessionID, tm.getFileSize(pkt.SessionID))
+	sid := fmt.Sprintf("%d", pkt.SessionID)
+	tm.sendAck(conn, sid, tm.getFileSize(sid))
 }
 
 func (tm *TransferManager) sendMeta(conn net.Conn, sessionID string, meta *models.FileMeta) error {

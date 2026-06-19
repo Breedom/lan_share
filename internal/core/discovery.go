@@ -89,6 +89,10 @@ func (d *Discovery) Stop() {
 	}
 }
 
+func (d *Discovery) GetDevice() *models.Device {
+	return d.device
+}
+
 func (d *Discovery) GetPeers() []*models.Device {
 	d.mu.RLock()
 	defer d.mu.RUnlock()
@@ -145,7 +149,7 @@ func (d *Discovery) listenLoop() {
 	buffer := make([]byte, 4096)
 
 	for d.running {
-		n, addr, err := d.conn.ReadFromUDP(buffer)
+		n, _, err := d.conn.ReadFromUDP(buffer)
 		if err != nil {
 			continue
 		}
@@ -170,15 +174,13 @@ func (d *Discovery) listenLoop() {
 		}
 
 		d.mu.Lock()
-		existing, exists := d.peers[peer.ID]
+		_, exists := d.peers[peer.ID]
 		d.peers[peer.ID] = peer
 		d.mu.Unlock()
 
 		if !exists && d.onDeviceFound != nil {
 			go d.onDeviceFound(peer)
 		}
-
-		_ = addr
 	}
 }
 
