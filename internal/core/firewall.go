@@ -11,8 +11,7 @@ func EnsureFirewallRule(port int) {
 
 	checkCmd := exec.Command("netsh", "advfirewall", "firewall", "show", "rule", "name="+ruleName)
 	checkCmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
-	output, _ := checkCmd.CombinedOutput()
-	if len(output) > 0 {
+	if err := checkCmd.Run(); err == nil {
 		fmt.Println("[✓] 防火墙规则已存在")
 		return
 	}

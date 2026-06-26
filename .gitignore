@@ -30,3 +30,7 @@ build/
 
 # Config (user specific)
 configs/config.json
+
+# AI tools
+.reasonix/
+reasonix.toml
